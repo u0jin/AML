@@ -1,99 +1,10 @@
 package main
 
 import (
-	"flag"
-	"log"
-	mrand "math/rand"
-	_ "net/http/pprof"
-	"os"
-	"path"
-	"strconv"
-	"strings"
-	"sync"
+	"fmt"
 
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/opt"
-	"github.com/syndtr/goleveldb/leveldb/util"
 )
-
-var (
-	dbPath                 = path.Join(os.TempDir(), "goleveldb-testdb")
-	openFilesCacheCapacity = 500
-	keyLen                 = 63
-	valueLen               = 256
-	numKeys                = arrayInt{100000, 1332, 531, 1234, 9553, 1024, 35743}
-	httpProf               = "http://163.152.26.69/"
-	transactionProb        = 0.5
-	enableBlockCache       = false
-	enableCompression      = false
-	enableBufferPool       = false
-	maxManifestFileSize    = opt.DefaultMaxManifestFileSize
-
-	wg         = new(sync.WaitGroup)
-	done, fail uint32
-
-	bpool *util.BufferPool
-)
-
-type arrayInt []int
-
-func init() {
-	flag.StringVar(&dbPath, "db", dbPath, "testdb path")
-	flag.IntVar(&openFilesCacheCapacity, "openfilescachecap", openFilesCacheCapacity, "open files cache capacity")
-	flag.IntVar(&keyLen, "keylen", keyLen, "key length")
-	flag.IntVar(&valueLen, "valuelen", valueLen, "value length")
-	flag.Var(&numKeys, "numkeys", "num keys")
-	flag.StringVar(&httpProf, "httpprof", httpProf, "http pprof listen addr")
-	flag.Float64Var(&transactionProb, "transactionprob", transactionProb, "probablity of writes using transaction")
-	flag.BoolVar(&enableBufferPool, "enablebufferpool", enableBufferPool, "enable buffer pool")
-	flag.BoolVar(&enableBlockCache, "enableblockcache", enableBlockCache, "enable block cache")
-	flag.BoolVar(&enableCompression, "enablecompression", enableCompression, "enable block compression")
-	flag.Int64Var(&maxManifestFileSize, "maxManifestFileSize", maxManifestFileSize, "max manifest file size")
-}
-
-func (a arrayInt) String() string {
-	var str string
-	for i, n := range a {
-		if i > 0 {
-			str += ","
-		}
-		str += strconv.Itoa(n)
-	}
-	return str
-}
-
-//error 처리
-func (a *arrayInt) Set(str string) error {
-	var na arrayInt
-	for _, s := range strings.Split(str, ",") {
-		s = strings.TrimSpace(s)
-		if s != "" {
-			n, err := strconv.Atoi(s)
-			if err != nil {
-				return err
-			}
-			na = append(na, n)
-		}
-	}
-	*a = na
-	return nil
-}
-
-// 초기화
-
-func init() {
-	flag.StringVar(&dbPath, "db", dbPath, "testdb path")
-	flag.IntVar(&openFilesCacheCapacity, "openfilescachecap", openFilesCacheCapacity, "open files cache capacity")
-	flag.IntVar(&keyLen, "keylen", keyLen, "key length")
-	flag.IntVar(&valueLen, "valuelen", valueLen, "value length")
-	flag.Var(&numKeys, "numkeys", "num keys")
-	flag.StringVar(&httpProf, "httpprof", httpProf, "http pprof listen addr")
-	flag.Float64Var(&transactionProb, "transactionprob", transactionProb, "probablity of writes using transaction")
-	flag.BoolVar(&enableBufferPool, "enablebufferpool", enableBufferPool, "enable buffer pool")
-	flag.BoolVar(&enableBlockCache, "enableblockcache", enableBlockCache, "enable block cache")
-	flag.BoolVar(&enableCompression, "enablecompression", enableCompression, "enable block compression")
-	flag.Int64Var(&maxManifestFileSize, "maxManifestFileSize", maxManifestFileSize, "max manifest file size")
-}
 
 func main() {
 
@@ -101,51 +12,53 @@ func main() {
 	// DB생성 & 열기
 
 	ahmiadb, err := leveldb.OpenFile("/home/covert/Desktop/blockchain/DB/ahmia", nil)
+	defer ahmiadb.Close() // 에러처리후 클린업 작업함
+	if err != nil {
+		fmt.Println("Error DB")
+	}
+
 	BitcoinAbusedb, err := leveldb.OpenFile("/home/covert/Desktop/blockchain/DB/BitcoinAbuse", nil)
-	etherscandb, err := leveldb.OpenFile("/home/covert/Desktop/blockchain/DB/etherscan", nil)
-
-	defer ahmiadb.Close()
 	defer BitcoinAbusedb.Close()
+	if err != nil {
+		fmt.Println("Error DB")
+	}
+
+	etherscandb, err := leveldb.OpenFile("/home/covert/Desktop/blockchain/DB/etherscan", nil)
 	defer etherscandb.Close()
+	if err != nil {
+		fmt.Println("Error DB")
+	}
 
-	// DB콘텐츠 읽기 & 수정
-	data, err := ahmiadb.Get([]byte("key"), nil)
-
+	// ahmiaDB데이터 저장 & 리턴
 	err = ahmiadb.Put([]byte("key"), []byte("value"), nil)
+	// 주어진 키에 지정된 값을 저장할때 사용함 - 키 없으면 새로 생서으 키 있으면 수정하여 저장
+	// 키는 string ,byte[], int 타입가능
+	ahmiadata, err := ahmiadb.Get([]byte("key"), nil)
+	//키에 매핑되어 있는 값을 리턴하는 기능
+	fmt.Println("ahmia Value: ", string(ahmiadata))
+
+	// BitcoinAbuseDB데이터 저장 & 리턴
+	err = BitcoinAbusedb.Put([]byte("key"), []byte("value"), nil)
+	// 주어진 키에 지정된 값을 저장할때 사용함 - 키 없으면 새로 생서으 키 있으면 수정하여 저장
+	// 키는 string ,byte[], int 타입가능
+	BitcoinAbusedata, err := BitcoinAbusedb.Get([]byte("key"), nil)
+	//키에 매핑되어 있는 값을 리턴하는 기능
+	fmt.Println("BitcoinAbuse Value: ", string(BitcoinAbusedata))
+
+	// etherscanDB데이터 저장 & 리턴
+	err = etherscandb.Put([]byte("key"), []byte("value"), nil)
+	// 주어진 키에 지정된 값을 저장할때 사용함 - 키 없으면 새로 생서으 키 있으면 수정하여 저장
+	// 키는 string ,byte[], int 타입가능
+	etherscandata, err := etherscandb.Get([]byte("key"), nil)
+	//키에 매핑되어 있는 값을 리턴하는 기능
+	fmt.Println("etherscan Value: ", string(etherscandata))
 
 	err = ahmiadb.Delete([]byte("key"), nil)
+
+	// DB 데이터 반복 - 모두 가져오기
 	iter := ahmiadb.NewIterator(nil, nil)
 
 	iter.Release()
 	err = iter.Error()
-	defer ahmiadb.Close()
-
-	go func() {
-		for b := range writeReq {
-
-			var err error
-			if mrand.Float64() < transactionProb {
-				log.Print("> Write using transaction")
-				gTrasactionStat.start()
-				var tr *leveldb.Transaction
-				if tr, err = db.OpenTransaction(); err == nil {
-					if err = tr.Write(b, nil); err == nil {
-						if err = tr.Commit(); err == nil {
-							gTrasactionStat.record(b.Len())
-						}
-					} else {
-						tr.Discard()
-					}
-				}
-			} else {
-				gWriteStat.start()
-				if err = db.Write(b, nil); err == nil {
-					gWriteStat.record(b.Len())
-				}
-			}
-			writeAck <- err
-			<-writeAckAck
-		}
-	}()
 
 }
